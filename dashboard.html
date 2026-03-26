@@ -1,0 +1,140 @@
+﻿<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Income & Expenses Dashboard</title>
+  <script src="https://cdn.plot.ly/plotly-latest.min.js"></script>
+  <style>
+    body { font-family: Arial, sans-serif; margin: 20px; }
+    .kpi-container { display: flex; flex-wrap: wrap; justify-content: space-around; margin-bottom: 20px; }
+    .kpi { background: #f4f4f4; padding: 15px; border-radius: 8px; text-align: center; width: 30%; margin: 10px; }
+    .charts { display: flex; flex-wrap: wrap; gap: 20px; }
+    .chart { flex: 1 1 45%; min-height: 400px; }
+    .filters { margin-bottom: 20px; }
+  </style>
+</head>
+<body>
+
+<h1>Income & Expenses Dashboard</h1>
+
+<!-- Filters -->
+<div class="filters">
+  <label for="nameFilter">A Name:</label>
+  <select id="nameFilter"><option value="All">All</option></select>
+
+  <label for="deptFilter">Department:</label>
+  <select id="deptFilter"><option value="All">All</option></select>
+
+  <label for="hotelFilter">Hotel:</label>
+  <select id="hotelFilter"><option value="All">All</option></select>
+
+  <label for="guidanceFilter">Accounting Guidance:</label>
+  <select id="guidanceFilter"><option value="All">All</option></select>
+</div>
+
+<!-- KPIs -->
+<div class="kpi-container">
+  <div class="kpi"><h3>Total Income EGP</h3><p id="kpiIncomeEGP">0</p></div>
+  <div class="kpi"><h3>Total Income USD</h3><p id="kpiIncomeUSD">0</p></div>
+  <div class="kpi"><h3>Total Cost (EGP)</h3><p id="kpiCostEGP">0</p></div>
+  <div class="kpi"><h3>Total Expenses USD</h3><p id="kpiExpUSD">0</p></div>
+  <div class="kpi"><h3>Balance (EGP)</h3><p id="kpiBalanceEGP">0</p></div>
+  <div class="kpi"><h3>Balance (USD)</h3><p id="kpiBalanceUSD">0</p></div>
+</div>
+
+<!-- Charts -->
+<div class="charts">
+  <div id="chart1" class="chart"></div>
+  <div id="chart2" class="chart"></div>
+  <div id="chart3" class="chart"></div>
+  <div id="chart4" class="chart"></div>
+  <div id="chart5" class="chart"></div>
+  <div id="chart6" class="chart"></div>
+  <div id="chart7" class="chart"></div> <!-- Pie Chart -->
+</div>
+
+<script>
+let data = [];
+
+// تحميل البيانات من ملف JSON
+fetch("dashboard.json")
+  .then(response => response.json())
+  .then(json => {
+    data = json;
+    populateFilters();
+    updateDashboard();
+  })
+  .catch(err => console.error("Error loading JSON:", err));
+
+// إضافة القيم في الفلاتر
+function populateFilters() {
+  const names = [...new Set(data.map(d => d["A Name"]))];
+  const depts = [...new Set(data.map(d => d["Department"]))];
+  const hotels = [...new Set(data.map(d => d["Hotel"]))];
+  const guidances = [...new Set(data.map(d => d["Accounting Guidance"]))];
+
+  addOptions("nameFilter", names);
+  addOptions("deptFilter", depts);
+  addOptions("hotelFilter", hotels);
+  addOptions("guidanceFilter", guidances);
+
+  document.querySelectorAll("select").forEach(sel => sel.addEventListener("change", updateDashboard));
+}
+
+function addOptions(selectId, values) {
+  const sel = document.getElementById(selectId);
+  values.forEach(v => {
+    let opt = document.createElement("option");
+    opt.value = v;
+    opt.text = v;
+    sel.add(opt);
+  });
+}
+
+function updateDashboard() {
+  const name = document.getElementById("nameFilter").value;
+  const dept = document.getElementById("deptFilter").value;
+  const hotel = document.getElementById("hotelFilter").value;
+  const guidance = document.getElementById("guidanceFilter").value;
+
+  const filtered = data.filter(d =>
+    (name === "All" || d["A Name"] === name) &&
+    (dept === "All" || d["Department"] === dept) &&
+    (hotel === "All" || d["Hotel"] === hotel) &&
+    (guidance === "All" || d["Accounting Guidance"] === guidance)
+  );
+
+  // KPIs
+  const totalIncomeEGP = filtered.reduce((sum,d)=>sum+(parseFloat(d["Income EGP"])||0),0);
+  const totalIncomeUSD = filtered.reduce((sum,d)=>sum+(parseFloat(d["Income USD"])||0),0);
+  const totalCostEGP = filtered.reduce((sum,d)=>sum+(parseFloat(d["Total Cost"])||0),0);
+  const totalExpUSD = filtered.reduce((sum,d)=>sum+(parseFloat(d["Exp.USD"])||0),0);
+  const balanceEGP = totalIncomeEGP - totalCostEGP;
+  const balanceUSD = totalIncomeUSD - totalExpUSD;
+
+  document.getElementById("kpiIncomeEGP").innerText = totalIncomeEGP.toFixed(2);
+  document.getElementById("kpiIncomeUSD").innerText = totalIncomeUSD.toFixed(2);
+  document.getElementById("kpiCostEGP").innerText = totalCostEGP.toFixed(2);
+  document.getElementById("kpiExpUSD").innerText = totalExpUSD.toFixed(2);
+  document.getElementById("kpiBalanceEGP").innerText = balanceEGP.toFixed(2);
+  document.getElementById("kpiBalanceUSD").innerText = balanceUSD.toFixed(2);
+
+  // Charts
+  Plotly.newPlot("chart1", [{x: filtered.map(d=>d.Hotel), y: filtered.map(d=>parseFloat(d["Income EGP"])||0), type:"bar"}], {title:"Income EGP by Hotel"});
+  Plotly.newPlot("chart2", [{x: filtered.map(d=>d.Hotel), y: filtered.map(d=>parseFloat(d["Income USD"])||0), type:"bar"}], {title:"Income USD by Hotel"});
+  Plotly.newPlot("chart3", [{x: filtered.map(d=>d.Hotel), y: filtered.map(d=>parseFloat(d["Total Cost"])||0), type:"bar"}], {title:"Total Cost (EGP) by Hotel"});
+  Plotly.newPlot("chart4", [{x: filtered.map(d=>d.Hotel), y: filtered.map(d=>parseFloat(d["Exp.USD"])||0), type:"bar"}], {title:"Expenses USD by Hotel"});
+  Plotly.newPlot("chart5", [{x: filtered.map(d=>d.Hotel), y: filtered.map(d=>(parseFloat(d["Income EGP"])||0)-(parseFloat(d["Total Cost"])||0)), type:"bar"}], {title:"Balance EGP by Hotel"});
+  Plotly.newPlot("chart6", [{x: filtered.map(d=>d.Hotel), y: filtered.map(d=>(parseFloat(d["Income USD"])||0)-(parseFloat(d["Exp.USD"])||0)), type:"bar"}], {title:"Balance USD by Hotel"});
+  
+  // Pie Chart: توزيع الدخل بالدولار حسب Department
+  Plotly.newPlot("chart7", [{
+    labels: filtered.map(d=>d["Department"]),
+    values: filtered.map(d=>parseFloat(d["Income USD"])||0),
+    type:"pie"
+  }], {title:"Income USD Distribution by Department"});
+}
+</script>
+
+</body>
+</html>
