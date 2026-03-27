@@ -50,13 +50,14 @@
   <div id="chart4" class="chart"></div>
   <div id="chart5" class="chart"></div>
   <div id="chart6" class="chart"></div>
-  <div id="chart7" class="chart"></div> <!-- Pie Chart -->
+  <div id="chart7" class="chart"></div> <!-- Pie Chart Income USD by Dept -->
+  <div id="chart8" class="chart"></div> <!-- Pie Chart Expenses EGP by Name -->
+  <div id="chart9" class="chart"></div> <!-- Pie Chart Expenses USD by Name -->
 </div>
 
 <script>
 let data = [];
 
-// تحميل البيانات من ملف JSON
 fetch("dashboard.json")
   .then(response => response.json())
   .then(json => {
@@ -66,7 +67,6 @@ fetch("dashboard.json")
   })
   .catch(err => console.error("Error loading JSON:", err));
 
-// إضافة القيم في الفلاتر
 function populateFilters() {
   const names = [...new Set(data.map(d => d["A Name"]))];
   const depts = [...new Set(data.map(d => d["Department"]))];
@@ -124,15 +124,22 @@ function updateDashboard() {
   Plotly.newPlot("chart2", [{x: filtered.map(d=>d.Hotel), y: filtered.map(d=>parseFloat(d["Income USD"])||0), type:"bar"}], {title:"Income USD by Hotel"});
   Plotly.newPlot("chart3", [{x: filtered.map(d=>d.Hotel), y: filtered.map(d=>parseFloat(d["Total Cost"])||0), type:"bar"}], {title:"Total Cost (EGP) by Hotel"});
   Plotly.newPlot("chart4", [{x: filtered.map(d=>d.Hotel), y: filtered.map(d=>parseFloat(d["Exp.USD"])||0), type:"bar"}], {title:"Expenses USD by Hotel"});
-  Plotly.newPlot("chart5", [{x: filtered.map(d=>d.Hotel), y: filtered.map(d=>(parseFloat(d["Income EGP"])||0)-(parseFloat(d["Total Cost"])||0)), type:"bar"}], {title:"Balance EGP by Hotel"});
-  Plotly.newPlot("chart6", [{x: filtered.map(d=>d.Hotel), y: filtered.map(d=>(parseFloat(d["Income USD"])||0)-(parseFloat(d["Exp.USD"])||0)), type:"bar"}], {title:"Balance USD by Hotel"});
-  
-  // Pie Chart: توزيع الدخل بالدولار حسب Department
-  Plotly.newPlot("chart7", [{
-    labels: filtered.map(d=>d["Department"]),
-    values: filtered.map(d=>parseFloat(d["Income USD"])||0),
+  Plotly.newPlot("chart5", [{x: filtered.map(d=>d["Accounting Guidance"]), y: filtered.map(d=>parseFloat(d["Total Cost"])||0), type:"bar"}], {title:"Total Cost (EGP) by Accounting Guidance"});
+  Plotly.newPlot("chart6", [{x: filtered.map(d=>d["Accounting Guidance"]), y: filtered.map(d=>parseFloat(d["Exp.USD"])||0), type:"bar"}], {title:"Expenses USD by Accounting Guidance"});
+ 
+  // Pie Chart: توزيع المصروف بالمصري حسب الاسم
+  Plotly.newPlot("chart8", [{
+    labels: filtered.map(d=>d["Accounting Guidance"]),
+    values: filtered.map(d=>parseFloat(d["Total Cost"])||0),
     type:"pie"
-  }], {title:"Income USD Distribution by Department"});
+  }], {title:"Expenses EGP Distribution by Name"});
+
+  // Pie Chart: توزيع المصروف بالدولار حسب الاسم
+  Plotly.newPlot("chart9", [{
+    labels: filtered.map(d=>d["Accounting Guidance"]),
+    values: filtered.map(d=>parseFloat(d["Exp.USD"])||0),
+    type:"pie"
+  }], {title:"Expenses USD Distribution by Name"});
 }
 </script>
 
