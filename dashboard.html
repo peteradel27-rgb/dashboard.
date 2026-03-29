@@ -11,6 +11,12 @@
     .charts { display: flex; flex-wrap: wrap; gap: 20px; }
     .chart { flex: 1 1 45%; min-height: 400px; }
     .filters { margin-bottom: 20px; }
+.kpi p {
+  font-size: 2.5em;
+  font-weight: bold;
+  color: #2c3e50;
+  margin: 10px 0;
+}
   </style>
 </head>
 <body>
@@ -40,6 +46,9 @@
   <div class="kpi"><h3>Total Expenses USD</h3><p id="kpiExpUSD">0</p></div>
   <div class="kpi"><h3>Balance (EGP)</h3><p id="kpiBalanceEGP">0</p></div>
   <div class="kpi"><h3>Balance (USD)</h3><p id="kpiBalanceUSD">0</p></div>
+  <div class="kpi">
+  <h3>Performance (A Name)</h3>
+  <p id="kpiCount">0</p>
 </div>
 
 <!-- Charts -->
@@ -112,12 +121,48 @@ function updateDashboard() {
   const balanceEGP = totalIncomeEGP - totalCostEGP;
   const balanceUSD = totalIncomeUSD - totalExpUSD;
 
-  document.getElementById("kpiIncomeEGP").innerText = totalIncomeEGP.toFixed(2);
-  document.getElementById("kpiIncomeUSD").innerText = totalIncomeUSD.toFixed(2);
-  document.getElementById("kpiCostEGP").innerText = totalCostEGP.toFixed(2);
-  document.getElementById("kpiExpUSD").innerText = totalExpUSD.toFixed(2);
-  document.getElementById("kpiBalanceEGP").innerText = balanceEGP.toFixed(2);
-  document.getElementById("kpiBalanceUSD").innerText = balanceUSD.toFixed(2);
+// تنسيق العملة
+const egpFormatter = new Intl.NumberFormat('en-US', {
+  style: 'decimal',
+  minimumFractionDigits: 2,
+  maximumFractionDigits: 2,
+  useGrouping: true
+});
+const usdFormatter = new Intl.NumberFormat('en-US', {
+  style: 'currency',
+  currency: 'USD',
+  minimumFractionDigits: 2
+});
+
+// EGP KPIs
+document.getElementById('kpiIncomeEGP').innerText = `EGP ${egpFormatter.format(totalIncomeEGP)}`;
+document.getElementById('kpiCostEGP').innerText = `EGP ${egpFormatter.format(totalCostEGP)}`;
+document.getElementById('kpiBalanceEGP').innerText = `EGP ${egpFormatter.format(balanceEGP)}`;
+
+// USD KPIs
+document.getElementById('kpiIncomeUSD').innerText = usdFormatter.format(totalIncomeUSD);
+document.getElementById('kpiExpUSD').innerText = usdFormatter.format(totalExpUSD);
+document.getElementById('kpiBalanceUSD').innerText = usdFormatter.format(balanceUSD);
+
+// لون Balance EGP
+const balanceEGPElm = document.getElementById('kpiBalanceEGP');
+balanceEGPElm.style.color = balanceEGP >= 0 ? '#27ae60' : '#e74c3c';  // أخضر أو أحمر
+
+// لون Balance USD
+const balanceUSDElm = document.getElementById('kpiBalanceUSD');
+balanceUSDElm.style.color = balanceUSD >= 0 ? '#27ae60' : '#e74c3c';
+
+// بعد حساب الإجماليات، أضف:
+const recordCount = filtered.length;  // عدد السجلات المفلترة
+const countByAName = {};  // عداد لكل A Name
+filtered.forEach(d => {
+  const name = d['A Name'] || 'غير محدد';
+  countByAName[name] = (countByAName[name] || 0) + 1;
+});
+const totalANameCount = Object.values(countByAName).reduce((sum, c) => sum + c, 0);
+
+// عرض الـ Count
+document.getElementById('kpiCount').innerText = `${recordCount} Count (${Object.keys(countByAName).length} A Name)`;
 
   // Charts
   Plotly.newPlot("chart1", [{x: filtered.map(d=>d.Hotel), y: filtered.map(d=>parseFloat(d["Income EGP"])||0), type:"bar"}], {title:"Income EGP by Hotel"});
