@@ -1,191 +1,355 @@
 ﻿<!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8">
-  <title>Income & Expenses Dashboard</title>
-  <script src="https://cdn.plot.ly/plotly-latest.min.js"></script>
-  <style>
-    body { font-family: Arial, sans-serif; margin: 20px; }
-    .kpi-container { display: flex; flex-wrap: wrap; justify-content: space-around; margin-bottom: 20px; }
-    .kpi { background: #f4f4f4; padding: 15px; border-radius: 8px; text-align: center; width: 30%; margin: 10px; }
-    .charts { display: flex; flex-wrap: wrap; gap: 20px; }
-    .chart { flex: 1 1 45%; min-height: 400px; }
-    .filters { margin-bottom: 20px; }
-.kpi p {
-  font-size: 2.5em;
-  font-weight: bold;
-  color: #2c3e50;
-  margin: 10px 0;
-}
-  </style>
+<meta charset="UTF-8">
+<title>PRO MAX Dashboard</title>
+
+<script src="https://cdn.plot.ly/plotly-2.30.0.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+
+<style>
+body{font-family:Inter,Arial;margin:0;background:#0b1220;color:#e2e8f0}
+h1{text-align:center;padding:20px}
+
+.filters{display:flex;flex-wrap:wrap;gap:10px;padding:15px;justify-content:center}
+select{padding:8px;border-radius:8px;border:none;background:#1e293b;color:white}
+
+.kpis{display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:15px;padding:20px}
+.card{background:#111827;padding:15px;border-radius:14px;border:1px solid #1f2937;text-align:center}
+.card h3{color:#94a3b8;font-size:13px}
+.card p{font-size:28px;font-weight:bold}
+
+.chart{background:#111827;margin:15px;border-radius:14px;padding:15px;border:1px solid #1f2937}
+
+/* TABLE */
+#costTable{font-size:16px;border-radius:14px;overflow:hidden}
+#costTable th{padding:14px;font-size:13px;background:#1e293b;cursor:pointer}
+#costTable td{padding:14px}
+#costTable tbody tr:nth-child(even){background:#0f172a}
+#costTable tbody tr:hover{background:#1f2937}
+#costTable td:first-child{text-align:left;font-weight:600}
+#costTable tfoot td{font-size:16px;font-weight:bold;background:#020617}
+
+.positive{color:#22c55e}
+.negative{color:#ef4444}
+
+#tableSearch{background:#1e293b;color:white}
+#alerts{background:#111827;border-radius:12px;margin:10px;padding:10px;border:1px solid #1f2937}
+</style>
 </head>
+
 <body>
 
-<h1>Income & Expenses Dashboard</h1>
+<h1>🔥 PRO MAX Finance Dashboard</h1>
 
-<!-- Filters -->
 <div class="filters">
-  <label for="nameFilter">A Name:</label>
-  <select id="nameFilter"><option value="All">All</option></select>
-
-  <label for="deptFilter">Department:</label>
-  <select id="deptFilter"><option value="All">All</option></select>
-
-  <label for="hotelFilter">Hotel:</label>
-  <select id="hotelFilter"><option value="All">All</option></select>
-
-  <label for="guidanceFilter">Accounting Guidance:</label>
-  <select id="guidanceFilter"><option value="All">All</option></select>
+<select id="nameFilter"></select>
+<select id="deptFilter"></select>
+<select id="hotelFilter"></select>
+<select id="monthFilter"></select>
+<select id="topFilter">
+<option value="10">Top 10</option>
+<option value="20">Top 20</option>
+<option value="999">All</option>
+</select>
 </div>
 
-<!-- KPIs -->
-<div class="kpi-container">
-  <div class="kpi"><h3>Total Income EGP</h3><p id="kpiIncomeEGP">0</p></div>
-  <div class="kpi"><h3>Total Income USD</h3><p id="kpiIncomeUSD">0</p></div>
-  <div class="kpi"><h3>Total Cost (EGP)</h3><p id="kpiCostEGP">0</p></div>
-  <div class="kpi"><h3>Total Expenses USD</h3><p id="kpiExpUSD">0</p></div>
-  <div class="kpi"><h3>Balance (EGP)</h3><p id="kpiBalanceEGP">0</p></div>
-  <div class="kpi"><h3>Balance (USD)</h3><p id="kpiBalanceUSD">0</p></div>
-  <div class="kpi">
-  <h3>Performance (A Name)</h3>
-  <p id="kpiCount">0</p>
+<div class="kpis">
+<div class="card"><h3>Income EGP</h3><p id="incomeEGP"></p></div>
+<div class="card"><h3>Expenses EGP</h3><p id="costEGP"></p></div>
+<div class="card"><h3>Profit EGP</h3><p id="profitEGP"></p></div>
+<div class="card"><h3>Income USD</h3><p id="incomeUSD"></p></div>
+<div class="card"><h3>Expenses USD</h3><p id="expUSD"></p></div>
+<div class="card"><h3>Profit USD</h3><p id="profitUSD"></p></div>
 </div>
 
-<!-- Charts -->
-<div class="charts">
-  <div id="chart1" class="chart"></div>
-  <div id="chart2" class="chart"></div>
-  <div id="chart3" class="chart"></div>
-  <div id="chart4" class="chart"></div>
-  <div id="chart5" class="chart"></div>
-  <div id="chart6" class="chart"></div>
-  <div id="chart7" class="chart"></div> <!-- Pie Chart Income USD by Dept -->
-  <div id="chart8" class="chart"></div> <!-- Pie Chart Expenses EGP by Name -->
-  <div id="chart9" class="chart"></div> <!-- Pie Chart Expenses USD by Name -->
+<div id="alerts"></div>
+
+<div id="chart1" class="chart"></div>
+<div id="chart2" class="chart"></div>
+<div id="forecastChart" class="chart"></div>
+<div class="chart">
+<h3 style="text-align:center">Financial Table</h3>
+
+<div style="display:flex;justify-content:space-between;margin-bottom:10px">
+<input id="tableSearch" placeholder="🔍 Search..." style="padding:8px;border-radius:8px;border:none;width:250px">
+<button onclick="exportExcel()" style="padding:8px 15px;border:none;border-radius:8px;background:#22c55e;color:white;cursor:pointer">
+📥 Export Excel
+</button>
+<span id="rowCount"></span>
+</div>
+
+<table id="costTable">
+<thead>
+<tr>
+<th>Department</th>
+<th>Income USD</th>
+<th>Income EGP</th>
+<th>Expenses USD</th>
+<th>Total Cost EGP</th>
+<th>Transactions</th>
+<th>Profit USD</th>
+<th>Profit EGP</th>
+<th>Status USD</th>
+<th>Status EGP</th>
+</tr>
+</thead>
+
+<tbody></tbody>
+
+<tfoot>
+<tr>
+<td>Total</td>
+<td id="t_incUSD"></td>
+<td id="t_incEGP"></td>
+<td id="t_expUSD"></td>
+<td id="t_expEGP"></td>
+<td id="t_count"></td>
+<td id="t_pUSD"></td>
+<td id="t_pEGP"></td>
+<td colspan="2">—</td>
+</tr>
+</tfoot>
+</table>
 </div>
 
 <script>
-let data = [];
+let DATA=[];
+const safe=v=>isNaN(Number(v))?0:Number(v);
 
-fetch("dashboard.json")
-  .then(response => response.json())
-  .then(json => {
-    data = json;
-    populateFilters();
-    updateDashboard();
-  })
-  .catch(err => console.error("Error loading JSON:", err));
+fetch('dashboard.json')
+.then(r=>r.json())
+.then(d=>{DATA=d;init();update();});
 
-function populateFilters() {
-  const names = [...new Set(data.map(d => d["A Name"]))];
-  const depts = [...new Set(data.map(d => d["Department"]))];
-  const hotels = [...new Set(data.map(d => d["Hotel"]))];
-  const guidances = [...new Set(data.map(d => d["Accounting Guidance"]))];
-
-  addOptions("nameFilter", names);
-  addOptions("deptFilter", depts);
-  addOptions("hotelFilter", hotels);
-  addOptions("guidanceFilter", guidances);
-
-  document.querySelectorAll("select").forEach(sel => sel.addEventListener("change", updateDashboard));
+function init(){
+ fill('nameFilter','A Name');
+ fill('deptFilter','Deparment');
+ fill('hotelFilter','Hotel');
+ fillMonths();
+ document.querySelectorAll('select').forEach(s=>s.onchange=update);
 }
 
-function addOptions(selectId, values) {
-  const sel = document.getElementById(selectId);
-  values.forEach(v => {
-    let opt = document.createElement("option");
-    opt.value = v;
-    opt.text = v;
-    sel.add(opt);
-  });
+function fill(id,key){
+ const sel=document.getElementById(id);
+ ['All',...new Set(DATA.map(d=>d[key]||'Unknown'))]
+ .forEach(v=>{
+   let o=document.createElement('option');
+   o.value=v;o.text=v;sel.add(o);
+ });
 }
 
-function updateDashboard() {
-  const name = document.getElementById("nameFilter").value;
-  const dept = document.getElementById("deptFilter").value;
-  const hotel = document.getElementById("hotelFilter").value;
-  const guidance = document.getElementById("guidanceFilter").value;
+function fillMonths(){
+ const sel=document.getElementById('monthFilter');
+ const m=['All'];
+ DATA.forEach(d=>{
+  if(d.Date){
+   const x=new Date(d.Date).toLocaleString('en',{month:'short'});
+   if(!m.includes(x)) m.push(x);
+  }
+ });
+ m.forEach(v=>{
+   let o=document.createElement('option');
+   o.value=v;o.text=v;sel.add(o);
+ });
+}
 
-  const filtered = data.filter(d =>
-    (name === "All" || d["A Name"] === name) &&
-    (dept === "All" || d["Department"] === dept) &&
-    (hotel === "All" || d["Hotel"] === hotel) &&
-    (guidance === "All" || d["Accounting Guidance"] === guidance)
+function update(){
+
+ const name=val('nameFilter');
+ const dept=val('deptFilter');
+ const hotel=val('hotelFilter');
+ const month=val('monthFilter');
+ const top=parseInt(val('topFilter'));
+
+ const f=DATA.filter(d=>{
+  const m=d.Date?new Date(d.Date).toLocaleString('en',{month:'short'}):'';
+  return (name==='All'||d['A Name']===name)&&
+         (dept==='All'||d['Deparment']===dept)&&
+         (hotel==='All'||d['Hotel']===hotel)&&
+         (month==='All'||m===month);
+ });
+
+ const sum=k=>f.reduce((s,d)=>s+safe(d[k]),0);
+
+ set('incomeEGP',sum('Income EGP'),'EGP');
+ set('costEGP',sum('Exp.EGP'),'EGP');
+ set('profitEGP',sum('Income EGP')-sum('Exp.EGP'),'EGP',true);
+ set('incomeUSD',sum('Income USD'),'USD');
+ set('expUSD',sum('Exp.USD'),'USD');
+ set('profitUSD',sum('Income USD')-sum('Exp.USD'),'USD',true);
+
+ // ===== TABLE =====
+ const map={};
+
+ f.forEach(d=>{
+  const k=d['Deparment']||'Unknown';
+  if(!map[k]) map[k]={incUSD:0,incEGP:0,expUSD:0,expEGP:0,count:0};
+
+  map[k].incUSD+=safe(d['Income USD']);
+  map[k].incEGP+=safe(d['Income EGP']);
+  map[k].expUSD+=safe(d['Exp.USD']);
+  map[k].expEGP+=safe(d['Exp.EGP']);
+  map[k].count++;
+ });
+
+ let rows=Object.entries(map).map(([k,v])=>{
+  const pUSD=v.incUSD-v.expUSD;
+  const pEGP=v.incEGP-v.expEGP;
+  return {dept:k,...v,pUSD,pEGP};
+ });
+
+ const tbody=document.querySelector('#costTable tbody');
+
+ function render(){
+  const search=(document.getElementById('tableSearch').value||'').toLowerCase();
+
+  let filtered=rows.filter(r=>
+    Object.values(r).join(' ').toLowerCase().includes(search)
   );
 
-  // KPIs
-  const totalIncomeEGP = filtered.reduce((sum,d)=>sum+(parseFloat(d["Income EGP"])||0),0);
-  const totalIncomeUSD = filtered.reduce((sum,d)=>sum+(parseFloat(d["Income USD"])||0),0);
-  const totalCostEGP = filtered.reduce((sum,d)=>sum+(parseFloat(d["Total Cost"])||0),0);
-  const totalExpUSD = filtered.reduce((sum,d)=>sum+(parseFloat(d["Exp.USD"])||0),0);
-  const balanceEGP = totalIncomeEGP - totalCostEGP;
-  const balanceUSD = totalIncomeUSD - totalExpUSD;
+  let totals={incUSD:0,incEGP:0,expUSD:0,expEGP:0,count:0,pUSD:0,pEGP:0};
 
-// تنسيق العملة
-const egpFormatter = new Intl.NumberFormat('en-US', {
-  style: 'decimal',
-  minimumFractionDigits: 2,
-  maximumFractionDigits: 2,
-  useGrouping: true
-});
-const usdFormatter = new Intl.NumberFormat('en-US', {
-  style: 'currency',
-  currency: 'USD',
-  minimumFractionDigits: 2
-});
+  filtered.forEach(r=>{
+   totals.incUSD+=r.incUSD;
+   totals.incEGP+=r.incEGP;
+   totals.expUSD+=r.expUSD;
+   totals.expEGP+=r.expEGP;
+   totals.count+=r.count;
+   totals.pUSD+=r.pUSD;
+   totals.pEGP+=r.pEGP;
+  });
 
-// EGP KPIs
-document.getElementById('kpiIncomeEGP').innerText = `EGP ${egpFormatter.format(totalIncomeEGP)}`;
-document.getElementById('kpiCostEGP').innerText = `EGP ${egpFormatter.format(totalCostEGP)}`;
-document.getElementById('kpiBalanceEGP').innerText = `EGP ${egpFormatter.format(balanceEGP)}`;
+  tbody.innerHTML='';
 
-// USD KPIs
-document.getElementById('kpiIncomeUSD').innerText = usdFormatter.format(totalIncomeUSD);
-document.getElementById('kpiExpUSD').innerText = usdFormatter.format(totalExpUSD);
-document.getElementById('kpiBalanceUSD').innerText = usdFormatter.format(balanceUSD);
+  filtered.forEach(r=>{
+    tbody.innerHTML+=`
+    <tr>
+      <td>${r.dept}</td>
+      <td>$ ${r.incUSD.toLocaleString('en-US',{minimumFractionDigits:2})}</td>
+      <td>EGP ${r.incEGP.toLocaleString('en-US',{minimumFractionDigits:2})}</td>
+      <td>$ ${r.expUSD.toLocaleString('en-US',{minimumFractionDigits:2})}</td>
+      <td>EGP ${r.expEGP.toLocaleString('en-US',{minimumFractionDigits:2})}</td>
+      <td>${r.count}</td>
+      <td class="${r.pUSD>=0?'positive':'negative'}">${r.pUSD>=0?'+':''}$ ${r.pUSD.toLocaleString('en-US',{minimumFractionDigits:2})}</td>
+      <td class="${r.pEGP>=0?'positive':'negative'}">${r.pEGP>=0?'+':''}EGP ${r.pEGP.toLocaleString('en-US',{minimumFractionDigits:2})}</td>
+      <td>${r.pUSD>=0?'Profit':'Loss'}</td>
+      <td>${r.pEGP>=0?'ربح':'خسارة'}</td>
+    </tr>`;
+  });
 
-// لون Balance EGP
-const balanceEGPElm = document.getElementById('kpiBalanceEGP');
-balanceEGPElm.style.color = balanceEGP >= 0 ? '#27ae60' : '#e74c3c';  // أخضر أو أحمر
+  document.getElementById('t_incUSD').innerText='$ '+totals.incUSD.toLocaleString();
+  document.getElementById('t_incEGP').innerText='EGP '+totals.incEGP.toLocaleString();
+  document.getElementById('t_expUSD').innerText='$ '+totals.expUSD.toLocaleString();
+  document.getElementById('t_expEGP').innerText='EGP '+totals.expEGP.toLocaleString();
+  document.getElementById('t_count').innerText=totals.count;
+  document.getElementById('t_pUSD').innerText='$ '+totals.pUSD.toLocaleString();
+  document.getElementById('t_pEGP').innerText='EGP '+totals.pEGP.toLocaleString();
+  document.getElementById('rowCount').innerText=`Rows: ${filtered.length}`;
+ }
 
-// لون Balance USD
-const balanceUSDElm = document.getElementById('kpiBalanceUSD');
-balanceUSDElm.style.color = balanceUSD >= 0 ? '#27ae60' : '#e74c3c';
+ document.getElementById('tableSearch').addEventListener('input',render);
 
-// بعد حساب الإجماليات، أضف:
-const recordCount = filtered.length;  // عدد السجلات المفلترة
-const countByAName = {};  // عداد لكل A Name
-filtered.forEach(d => {
-  const name = d['A Name'] || 'غير محدد';
-  countByAName[name] = (countByAName[name] || 0) + 1;
-});
-const totalANameCount = Object.values(countByAName).reduce((sum, c) => sum + c, 0);
+ render();
 
-// عرض الـ Count
-document.getElementById('kpiCount').innerText = `${recordCount} Count (${Object.keys(countByAName).length} A Name)`;
+ // ===== ALERTS =====
+ let totalProfit=sum('Income EGP')-sum('Exp.EGP');
+ let alertMsg='';
 
-  // Charts
-  Plotly.newPlot("chart1", [{x: filtered.map(d=>d.Hotel), y: filtered.map(d=>parseFloat(d["Income EGP"])||0), type:"bar"}], {title:"Income EGP by Hotel"});
-  Plotly.newPlot("chart2", [{x: filtered.map(d=>d.Hotel), y: filtered.map(d=>parseFloat(d["Income USD"])||0), type:"bar"}], {title:"Income USD by Hotel"});
-  Plotly.newPlot("chart3", [{x: filtered.map(d=>d.Hotel), y: filtered.map(d=>parseFloat(d["Total Cost"])||0), type:"bar"}], {title:"Total Cost (EGP) by Hotel"});
-  Plotly.newPlot("chart4", [{x: filtered.map(d=>d.Hotel), y: filtered.map(d=>parseFloat(d["Exp.USD"])||0), type:"bar"}], {title:"Expenses USD by Hotel"});
-  Plotly.newPlot("chart5", [{x: filtered.map(d=>d["Accounting Guidance"]), y: filtered.map(d=>parseFloat(d["Total Cost"])||0), type:"bar"}], {title:"Total Cost (EGP) by Accounting Guidance"});
-  Plotly.newPlot("chart6", [{x: filtered.map(d=>d["Accounting Guidance"]), y: filtered.map(d=>parseFloat(d["Exp.USD"])||0), type:"bar"}], {title:"Expenses USD by Accounting Guidance"});
- 
-  // Pie Chart: توزيع المصروف بالمصري حسب الاسم
-  Plotly.newPlot("chart8", [{
-    labels: filtered.map(d=>d["Accounting Guidance"]),
-    values: filtered.map(d=>parseFloat(d["Total Cost"])||0),
-    type:"pie"
-  }], {title:"Expenses EGP Distribution by Name"});
+ if(totalProfit<0) alertMsg+='⚠️ Loss Detected<br>';
 
-  // Pie Chart: توزيع المصروف بالدولار حسب الاسم
-  Plotly.newPlot("chart9", [{
-    labels: filtered.map(d=>d["Accounting Guidance"]),
-    values: filtered.map(d=>parseFloat(d["Exp.USD"])||0),
-    type:"pie"
-  }], {title:"Expenses USD Distribution by Name"});
+ const best=Object.entries(map).sort((a,b)=>
+ (b[1].incEGP-b[1].expEGP)-(a[1].incEGP-a[1].expEGP)
+ )[0];
+
+ if(best) alertMsg+=`🏆 Top Dept: ${best[0]}<br>`;
+
+ const worst=Object.entries(map).sort((a,b)=>b[1].expEGP-a[1].expEGP)[0];
+ if(worst) alertMsg+=`💸 Highest Cost: ${worst[0]}`;
+
+ document.getElementById('alerts').innerHTML=alertMsg;
+
+ drawBar('chart1',group(f,'Hotel','Income EGP',top),'Top Hotels');
+ drawBar('chart2',group(f,'A Name','Exp.EGP',top),'Top Names');
 }
+// ===== AI FORECAST =====
+const trend = {};
+
+f.forEach(d=>{
+ if(!d.Date) return;
+
+ const date = new Date(d.Date).toLocaleDateString();
+ const profit = safe(d['Income EGP']) - safe(d['Exp.EGP']);
+
+ trend[date] = (trend[date] || 0) + profit;
+});
+
+const dates = Object.keys(trend);
+const values = Object.values(trend);
+
+let forecastPoints = 5;
+let lastValue = values[values.length - 1] || 0;
+let avgGrowth = 0;
+
+if(values.length > 1){
+ avgGrowth = (values[values.length-1] - values[0]) / values.length;
+}
+
+let forecastDates = [];
+let forecastValues = [];
+
+for(let i=1;i<=forecastPoints;i++){
+ lastValue += avgGrowth;
+ forecastDates.push("F+" + i);
+ forecastValues.push(lastValue);
+}
+
+Plotly.react('forecastChart',[
+ {x:dates,y:values,type:'scatter',name:'Actual'},
+ {x:forecastDates,y:forecastValues,type:'scatter',name:'Forecast',line:{dash:'dot'}}
+],
+{
+ title:'📈 Profit Forecast',
+ paper_bgcolor:'#111827',
+ plot_bgcolor:'#111827',
+ font:{color:'#fff'}
+});
+function group(data,key,valField,top){
+ const r={};
+ data.forEach(d=>{
+  const k=d[key]||'Unknown';
+  r[k]=(r[k]||0)+safe(d[valField]);
+ });
+
+ return Object.entries(r)
+ .sort((a,b)=>b[1]-a[1])
+ .slice(0,top)
+ .reduce((acc,[k,v])=>{
+  acc.x.push(k);acc.y.push(v);return acc;
+ },{x:[],y:[]});
+}
+
+function drawBar(id,g,title){
+ Plotly.react(id,[{x:g.x,y:g.y,type:'bar'}],{
+  title,
+  paper_bgcolor:'#111827',
+  plot_bgcolor:'#111827',
+  font:{color:'white'}
+ });
+}
+
+function exportExcel(){
+ const table = document.getElementById("costTable");
+ const wb = XLSX.utils.table_to_book(table,{sheet:"Report"});
+ XLSX.writeFile(wb,"Finance_Report.xlsx");
+}
+
+function set(id,v,currency,color=false){
+ const el=document.getElementById(id);
+ el.innerText=(currency==='USD'?'$ ':'EGP ')+v.toLocaleString('en-US',{minimumFractionDigits:2});
+ if(color) el.style.color=v>=0?'#22c55e':'#ef4444';
+}
+
+function val(id){return document.getElementById(id).value}
 </script>
 
 </body>
