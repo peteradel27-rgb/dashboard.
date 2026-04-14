@@ -68,6 +68,14 @@ select{padding:8px;border-radius:8px;border:none;background:#1e293b;color:white}
 <div id="chart1" class="chart"></div>
 <div id="chart2" class="chart"></div>
 <div id="forecastChart" class="chart"></div>
+<div id="deptExpenseChart" class="chart"></div>
+<div id="expenseTypeChart" class="chart"></div>
+<div id="momChart" class="chart"></div>
+
+<div class="card">
+<h3>Worst Department</h3>
+<p id="worstDept"></p>
+</div>
 <div class="chart">
 <h3 style="text-align:center">Financial Table</h3>
 
@@ -171,6 +179,7 @@ function update(){
 
  const sum=k=>f.reduce((s,d)=>s+safe(d[k]),0);
 
+ // KPIs
  set('incomeEGP',sum('Income EGP'),'EGP');
  set('costEGP',sum('Exp.EGP'),'EGP');
  set('profitEGP',sum('Income EGP')-sum('Exp.EGP'),'EGP',true);
@@ -248,7 +257,6 @@ function update(){
  }
 
  document.getElementById('tableSearch').addEventListener('input',render);
-
  render();
 
  // ===== ALERTS =====
@@ -268,51 +276,172 @@ function update(){
 
  document.getElementById('alerts').innerHTML=alertMsg;
 
+ // ===== CHARTS =====
  drawBar('chart1',group(f,'Hotel','Income EGP',top),'Top Hotels');
  drawBar('chart2',group(f,'A Name','Exp.EGP',top),'Top Names');
+// ===== DEPARTMENT EXPENSE BREAKDOWN =====
+
+let selectedDept = val('deptFilter');
+
+let deptData = f;
+
+if(selectedDept !== 'All'){
+ deptData = f.filter(d => d['Deparment'] === selectedDept);
 }
-// ===== AI FORECAST =====
-const trend = {};
+
+// تجميع
+let egp = 0;
+let usd = 0;
+
+deptData.forEach(d=>{
+ egp += safe(d['Exp.EGP']);
+ usd += safe(d['Exp.USD']);
+});
+
+// رسم الشارت
+Plotly.react('deptExpenseChart',[
+ {
+  labels:['EGP Expenses','USD Expenses'],
+  values:[egp, usd],
+  type:'pie'
+ }
+],
+{
+ title:`💸 Expenses Breakdown ${selectedDept !== 'All' ? '('+selectedDept+')' : ''}`,
+ paper_bgcolor:'#111827',
+ font:{color:'#fff'}
+});
+// ===== MONTHLY FORECAST IMPROVED =====
+const monthly = {};
 
 f.forEach(d=>{
  if(!d.Date) return;
 
- const date = new Date(d.Date).toLocaleDateString();
- const profit = safe(d['Income EGP']) - safe(d['Exp.EGP']);
+ const date = new Date(d.Date);
+ const key = date.toLocaleString('en-US',{month:'short',year:'numeric'});
 
- trend[date] = (trend[date] || 0) + profit;
+ const profit = safe(d['Income EGP']) - safe(d['Exp.EGP']);
+ monthly[key] = (monthly[key] || 0) + profit;
 });
 
-const dates = Object.keys(trend);
-const values = Object.values(trend);
-
-let forecastPoints = 5;
-let lastValue = values[values.length - 1] || 0;
-let avgGrowth = 0;
+// ترتيب زمني صحيح
+const months = Object.keys(monthly);
+const values = Object.values(monthly);
 
 if(values.length > 1){
- avgGrowth = (values[values.length-1] - values[0]) / values.length;
-}
 
-let forecastDates = [];
-let forecastValues = [];
+ const n = values.length;
+ let sumX=0,sumY=0,sumXY=0,sumXX=0;
 
-for(let i=1;i<=forecastPoints;i++){
- lastValue += avgGrowth;
- forecastDates.push("F+" + i);
- forecastValues.push(lastValue);
-}
+ for(let i=0;i<n;i++){
+  sumX+=i;
+  sumY+=values[i];
+  sumXY+=i*values[i];
+  sumXX+=i*i;
+ }
 
-Plotly.react('forecastChart',[
- {x:dates,y:values,type:'scatter',name:'Actual'},
- {x:forecastDates,y:forecastValues,type:'scatter',name:'Forecast',line:{dash:'dot'}}
+ const slope=(n*sumXY-sumX*sumY)/(n*sumXX-sumX*sumX);
+ const intercept=(sumY-slope*sumX)/n;
+
+ const forecastMonths=[];
+ const forecastValues=[];
+
+ for(let i=0;i<3;i++){
+  const x=n+i;
+  forecastMonths.push("Forecast "+(i+1));
+  forecastValues.push(slope*x+intercept);
+ }
+
+ Plotly.react('forecastChart',[
+  {x:months,y:values,type:'scatter',name:'Actual',line:{width:3}},
+  {x:forecastMonths,y:forecastValues,type:'scatter',name:'Forecast',line:{dash:'dot',width:3}}
+ ],{
+  title:'📈 Monthly Profit Forecast',
+  paper_bgcolor:'#111827',
+  plot_bgcolor:'#111827',
+  font:{color:'#fff'}
+  });
+ }
+// ===== EXPENSE TYPE BREAKDOWN =====
+const expenseType = {};
+
+f.forEach(d=>{
+ const type = d['Category'] || 'Other';
+ expenseType[type] = (expenseType[type] || 0) + safe(d['Exp.EGP']);
+});
+
+const expLabels = Object.keys(expenseType);
+const expValues = Object.values(expenseType);
+
+Plotly.react('expenseTypeChart',[
+ {x:expLabels,y:expValues,type:'bar'}
 ],
 {
- title:'📈 Profit Forecast',
+ title:'📊 Expense Breakdown by Type',
  paper_bgcolor:'#111827',
  plot_bgcolor:'#111827',
  font:{color:'#fff'}
 });
+
+
+// ===== DRILL DOWN (CLICK FILTER) =====
+document.getElementById('expenseTypeChart').on('plotly_click', function(data){
+ const selected = data.points[0].x;
+
+ const filtered = f.filter(d => (d['Category'] || 'Other') === selected);
+
+ // إعادة رسم الجدول
+ rows = Object.entries(group(filtered,'Deparment','Exp.EGP',999))
+   .map(([k,v])=>({dept:k,exp:v}));
+
+ render();
+});
+
+
+// ===== MONTH OVER MONTH =====
+const monthsMap = {};
+
+f.forEach(d=>{
+ if(!d.Date) return;
+
+ const date = new Date(d.Date);
+ const key = date.toLocaleString('en-US',{month:'short',year:'numeric'});
+
+ monthsMap[key] = (monthsMap[key] || 0) + safe(d['Exp.EGP']);
+});
+
+const mKeys = Object.keys(monthsMap);
+const mVals = mKeys.map(k=>monthsMap[k]);
+
+Plotly.react('momChart',[
+ {x:mKeys,y:mVals,type:'scatter'}
+],
+{
+ title:'📅 Monthly Expenses Trend',
+ paper_bgcolor:'#111827',
+ plot_bgcolor:'#111827',
+ font:{color:'#fff'}
+});
+
+
+// ===== WORST DEPARTMENT KPI =====
+let worstDept = null;
+let worstValue = 0;
+
+Object.entries(map).forEach(([k,v])=>{
+ const loss = v.expEGP - v.incEGP;
+
+ if(loss > worstValue){
+  worstValue = loss;
+  worstDept = k;
+ }
+});
+
+document.getElementById('worstDept').innerText =
+ worstDept ? `${worstDept} (${worstValue.toLocaleString()} EGP)` : 'N/A';
+}
+
+// ===== HELPERS =====
 function group(data,key,valField,top){
  const r={};
  data.forEach(d=>{
